@@ -1,0 +1,3 @@
+[[hooks]]
+event = "PreToolUse"
+command = "codeguard agent-hook --client kimi-code"

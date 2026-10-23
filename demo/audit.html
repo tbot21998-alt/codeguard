@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeGuard · Live Audit Log</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #0a0c10;
+      --surface:   #111418;
+      --card:      #161b22;
+      --border:    #21262d;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --block-clr: #f85149;
+      --allow-clr: #3fb950;
+      --warn-clr:  #d29922;
+      --accent:    #58a6ff;
+      --tag-bg:    #1f2937;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10,12,16,.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      height: 56px;
+    }
+    .logo { display:flex; align-items:center; gap:.5rem; font-weight:700; font-size:1.05rem; letter-spacing:-.3px; }
+    .logo svg { width:28px; height:28px; }
+    .logo-badge { font-size:.7rem; font-weight:600; background:#58a6ff22; color:var(--accent); border:1px solid #58a6ff44; border-radius:4px; padding:1px 6px; letter-spacing:.5px; }
+    .spacer { flex:1; }
+    .status-dot {
+      width:8px; height:8px; border-radius:50%;
+      background: var(--muted);
+      transition: background .3s, box-shadow .3s;
+    }
+    .status-dot.live {
+      background: var(--allow-clr);
+      box-shadow: 0 0 0 4px #3fb95022;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 #3fb95044; }
+      70%  { box-shadow: 0 0 0 7px #3fb95000; }
+      100% { box-shadow: 0 0 0 0 #3fb95000; }
+    }
+    .status-text { font-size:.8rem; color:var(--muted); }
+    .btn {
+      font-size:.8rem; font-weight:500; padding:.35rem .9rem;
+      border-radius:6px; border:1px solid var(--border);
+      background:var(--card); color:var(--text); cursor:pointer;
+      transition:background .15s, border-color .15s; text-decoration:none; display:inline-block;
+    }
+    .btn:hover { background:var(--surface); border-color:var(--muted); }
+    .btn.danger { border-color:#f8514944; color:var(--block-clr); }
+    .btn.danger:hover { background:#f8514910; }
+
+    .stats-bar {
+      display:flex; gap:1rem; padding:1rem 1.5rem;
+      border-bottom:1px solid var(--border); flex-wrap:wrap;
+    }
+    .stat {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:10px; padding:.65rem 1rem;
+      display:flex; flex-direction:column; gap:.2rem; min-width:110px;
+    }
+    .stat-val { font-size:1.5rem; font-weight:700; line-height:1; }
+    .stat-label { font-size:.7rem; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); }
+    .stat-val.red  { color:var(--block-clr); }
+    .stat-val.green{ color:var(--allow-clr); }
+    .stat-val.blue { color:var(--accent); }
+
+    main { flex:1; padding:1rem 1.5rem; display:flex; flex-direction:column; gap:.75rem; }
+
+    .filter-bar { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+    .filter-chip {
+      font-size:.75rem; font-weight:500; padding:.25rem .75rem;
+      border-radius:20px; border:1px solid var(--border);
+      background:var(--card); color:var(--muted); cursor:pointer; transition:all .15s;
+    }
+    .filter-chip.active { border-color:var(--accent); color:var(--accent); background:#58a6ff15; }
+    .filter-chip.block-chip.active { border-color:var(--block-clr); color:var(--block-clr); background:#f8514915; }
+    .filter-chip.allow-chip.active { border-color:var(--allow-clr); color:var(--allow-clr); background:#3fb95015; }
+    .search-input {
+      flex:1; min-width:160px; font-size:.8rem; font-family:'Inter',sans-serif;
+      background:var(--card); border:1px solid var(--border);
+      border-radius:8px; color:var(--text); padding:.35rem .75rem;
+      outline:none; transition:border-color .15s;
+    }
+    .search-input:focus { border-color:var(--accent); }
+    .search-input::placeholder { color:var(--muted); }
+
+    #log-stream { display:flex; flex-direction:column; gap:.5rem; }
+
+    .entry {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:10px; overflow:hidden; animation: slideIn .2s ease;
+    }
+    @keyframes slideIn {
+      from { opacity:0; transform:translateY(-6px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .entry.block { border-left:3px solid var(--block-clr); }
+    .entry.allow { border-left:3px solid var(--allow-clr); }
+
+    .entry-header {
+      display:flex; align-items:center; gap:.75rem;
+      padding:.65rem 1rem; cursor:pointer; transition:background .1s;
+    }
+    .entry-header:hover { background:#ffffff08; }
+
+    .verdict-badge {
+      font-size:.65rem; font-weight:700; letter-spacing:.8px;
+      padding:.2rem .5rem; border-radius:5px; text-transform:uppercase; flex-shrink:0;
+    }
+    .verdict-badge.block { background:#f8514922; color:var(--block-clr); border:1px solid #f8514944; }
+    .verdict-badge.allow { background:#3fb95022; color:var(--allow-clr); border:1px solid #3fb95044; }
+
+    .entry-cmd {
+      font-family:'JetBrains Mono', monospace; font-size:.8rem;
+      color:var(--text); flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+    }
+    .entry-meta { display:flex; align-items:center; gap:.75rem; flex-shrink:0; }
+    .entry-client {
+      font-size:.7rem; font-weight:500; background:var(--tag-bg); color:var(--muted);
+      border-radius:4px; padding:1px 6px; border:1px solid var(--border);
+    }
+    .entry-time { font-size:.7rem; color:var(--muted); }
+    .risk-pill { font-size:.7rem; font-weight:600; padding:.15rem .5rem; border-radius:12px; }
+    .risk-pill.high   { background:#f8514920; color:var(--block-clr); }
+    .risk-pill.medium { background:#d2992220; color:var(--warn-clr); }
+    .risk-pill.low    { background:#3fb95020; color:var(--allow-clr); }
+    .expand-icon { color:var(--muted); font-size:.7rem; transition:transform .2s; flex-shrink:0; }
+    .entry.expanded .expand-icon { transform:rotate(90deg); }
+
+    .entry-detail { display:none; padding:.75rem 1rem 1rem; border-top:1px solid var(--border); }
+    .entry.expanded .entry-detail { display:block; }
+
+    .detail-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:.5rem; margin-bottom:.75rem; }
+    .detail-item { display:flex; flex-direction:column; gap:.2rem; }
+    .detail-label { font-size:.65rem; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); }
+    .detail-val { font-size:.8rem; font-weight:500; }
+
+    .risk-bar-wrap { margin:.5rem 0 .75rem; }
+    .risk-bar-label { font-size:.7rem; color:var(--muted); margin-bottom:.25rem; display:flex; justify-content:space-between; }
+    .risk-bar-track { height:6px; border-radius:3px; background:#ffffff10; overflow:hidden; }
+    .risk-bar-fill { height:100%; border-radius:3px; transition:width .5s ease; }
+
+    .reason-box {
+      background:#ffffff06; border:1px solid var(--border);
+      border-radius:8px; padding:.65rem .85rem; margin-bottom:.75rem;
+    }
+    .reason-box-label { font-size:.65rem; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); margin-bottom:.3rem; }
+    .reason-box-text { font-size:.8rem; line-height:1.5; }
+
+    .category-tags { display:flex; flex-wrap:wrap; gap:.35rem; }
+    .cat-tag {
+      font-size:.7rem; font-weight:500; padding:.2rem .6rem; border-radius:5px;
+      background:#58a6ff15; color:var(--accent); border:1px solid #58a6ff30;
+    }
+    .cat-tag.block-cat { background:#f8514915; color:var(--block-clr); border-color:#f8514930; }
+
+    #empty {
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      flex:1; gap:1rem; padding:4rem 2rem; text-align:center; color:var(--muted);
+    }
+    #empty svg { opacity:.3; }
+    #empty h3 { font-size:1rem; font-weight:500; }
+    #empty p  { font-size:.8rem; line-height:1.6; max-width:360px; }
+
+    #new-toast {
+      position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(100px);
+      background:var(--accent); color:#000; font-size:.8rem; font-weight:600;
+      padding:.5rem 1.2rem; border-radius:20px; cursor:pointer;
+      transition:transform .3s ease; z-index:200; box-shadow:0 4px 20px #58a6ff44;
+    }
+    #new-toast.visible { transform:translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="6" fill="#58a6ff22"/>
+      <path d="M7 10l7-4 7 4v8l-7 4-7-4V10z" stroke="#58a6ff" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M14 6v16M7 10l7 4 7-4" stroke="#58a6ff" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>
+    CodeGuard
+    <span class="logo-badge">AUDIT</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="status-dot" id="status-dot"></div>
+  <span class="status-text" id="status-text">Connecting…</span>
+  <button class="btn danger" onclick="clearLog()">Clear</button>
+  <a href="/" class="btn">← Dashboard</a>
+</header>
+
+<div class="stats-bar">
+  <div class="stat"><span class="stat-val blue" id="stat-total">0</span><span class="stat-label">Total</span></div>
+  <div class="stat"><span class="stat-val red" id="stat-blocked">0</span><span class="stat-label">Blocked</span></div>
+  <div class="stat"><span class="stat-val green" id="stat-allowed">0</span><span class="stat-label">Allowed</span></div>
+  <div class="stat"><span class="stat-val" id="stat-rate" style="color:var(--warn-clr)">—</span><span class="stat-label">Block Rate</span></div>
+</div>
+
+<main>
+  <div class="filter-bar">
+    <button class="filter-chip active"      onclick="setFilter('all',this)">All</button>
+    <button class="filter-chip block-chip"  onclick="setFilter('block',this)">Blocked only</button>
+    <button class="filter-chip allow-chip"  onclick="setFilter('allow',this)">Allowed only</button>
+    <input class="search-input" id="search" placeholder="Search commands, categories, clients…" oninput="applyFilters()" />
+    <button class="btn" onclick="scrollToLatest()">↓ Latest</button>
+  </div>
+
+  <div id="empty">
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+      <rect x="8" y="8" width="32" height="32" rx="6" stroke="#8b949e" stroke-width="2"/>
+      <path d="M16 18h16M16 24h12M16 30h8" stroke="#8b949e" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <h3>Waiting for commands…</h3>
+    <p>New events from any connected AI CLI will appear here in real time as CodeGuard inspects them.</p>
+  </div>
+
+  <div id="log-stream"></div>
+</main>
+
+<div id="new-toast" onclick="scrollToLatest()">↓ New events</div>
+
+<script>
+let entries = [];
+let activeFilter = 'all';
+let atBottom = true;
+let entryCounter = 0;
+
+const stream     = document.getElementById('log-stream');
+const emptyState = document.getElementById('empty');
+const toast      = document.getElementById('new-toast');
+const dot        = document.getElementById('status-dot');
+const statusText = document.getElementById('status-text');
+const statTotal  = document.getElementById('stat-total');
+const statBlocked= document.getElementById('stat-blocked');
+const statAllowed= document.getElementById('stat-allowed');
+const statRate   = document.getElementById('stat-rate');
+
+function updateStats() {
+  const total   = entries.length;
+  const blocked = entries.filter(e => e.verdict === 'block').length;
+  statTotal.textContent   = total;
+  statBlocked.textContent = blocked;
+  statAllowed.textContent = total - blocked;
+  statRate.textContent    = total ? Math.round(blocked / total * 100) + '%' : '—';
+}
+
+window.addEventListener('scroll', () => {
+  const nearBottom = (window.innerHeight + window.scrollY) >= document.body.offsetHeight - 80;
+  atBottom = nearBottom;
+  if (nearBottom) hideToast();
+});
+
+function showToast() { toast.classList.add('visible'); }
+function hideToast() { toast.classList.remove('visible'); }
+function scrollToLatest() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); hideToast(); }
+
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function applyFilters() {
+  const q = document.getElementById('search').value.toLowerCase();
+  document.querySelectorAll('.entry').forEach(el => {
+    const d = JSON.parse(el.dataset.raw);
+    const matchV = activeFilter === 'all' || d.verdict === activeFilter;
+    const matchQ = !q || JSON.stringify(d).toLowerCase().includes(q);
+    el.style.display = matchV && matchQ ? '' : 'none';
+  });
+}
+
+function riskClass(s) { return s >= 0.75 ? 'high' : s >= 0.5 ? 'medium' : 'low'; }
+function riskBarColor(s) { return s >= 0.75 ? '#f85149' : s >= 0.5 ? '#d29922' : '#3fb950'; }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function renderEntry(data) {
+  const id      = 'e' + (++entryCounter);
+  const verdict = data.verdict || 'allow';
+  const client  = data.client  || 'unknown';
+  const risk    = data.risk_score;
+  const riskPct = risk != null ? Math.round(risk * 100) : null;
+  const cats    = data.categories || [];
+  const time    = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '';
+  const cmd     = data.command || data.code || '(no command)';
+
+  const el = document.createElement('div');
+  el.className = `entry ${verdict}`;
+  el.dataset.raw = JSON.stringify(data);
+  el.id = id;
+
+  el.innerHTML = `
+    <div class="entry-header" onclick="document.getElementById('${id}').classList.toggle('expanded')">
+      <span class="verdict-badge ${verdict}">${verdict}</span>
+      <span class="entry-cmd" title="${escHtml(cmd)}">${escHtml(cmd)}</span>
+      <div class="entry-meta">
+        ${risk != null ? `<span class="risk-pill ${riskClass(risk)}">${riskPct}%</span>` : ''}
+        <span class="entry-client">${escHtml(client)}</span>
+        <span class="entry-time">${time}</span>
+      </div>
+      <span class="expand-icon">▶</span>
+    </div>
+    <div class="entry-detail">
+      ${risk != null ? `
+      <div class="risk-bar-wrap">
+        <div class="risk-bar-label"><span>Risk Score</span><span>${riskPct}%</span></div>
+        <div class="risk-bar-track"><div class="risk-bar-fill" style="width:${riskPct}%;background:${riskBarColor(risk)}"></div></div>
+      </div>` : ''}
+      <div class="detail-grid">
+        <div class="detail-item"><span class="detail-label">Client</span><span class="detail-val">${escHtml(client)}</span></div>
+        ${data.confidence_score != null ? `<div class="detail-item"><span class="detail-label">Confidence</span><span class="detail-val">${Math.round(data.confidence_score*100)}%</span></div>` : ''}
+        ${data.latency_ms != null ? `<div class="detail-item"><span class="detail-label">Latency</span><span class="detail-val">${data.latency_ms.toFixed(1)} ms</span></div>` : ''}
+        ${data.code_language ? `<div class="detail-item"><span class="detail-label">Language</span><span class="detail-val">${escHtml(data.code_language)}</span></div>` : ''}
+        ${(data.vulnerable_lines||[]).length ? `<div class="detail-item"><span class="detail-label">Flagged Lines</span><span class="detail-val">${data.vulnerable_lines.join(', ')}</span></div>` : ''}
+      </div>
+      ${data.reason ? `<div class="reason-box"><div class="reason-box-label">Reason</div><div class="reason-box-text">${escHtml(data.reason)}</div></div>` : ''}
+      ${cats.length ? `<div class="category-tags">${cats.map(c=>`<span class="cat-tag ${verdict==='block'?'block-cat':''}">${escHtml(c)}</span>`).join('')}</div>` : ''}
+    </div>
+  `;
+  return el;
+}
+
+function addEntry(data) {
+  entries.push(data);
+  emptyState.style.display = 'none';
+  stream.appendChild(renderEntry(data));
+  applyFilters();
+  updateStats();
+  if (!atBottom) showToast();
+  else window.scrollTo({ top: document.body.scrollHeight });
+}
+
+function clearLog() { entries=[]; stream.innerHTML=''; emptyState.style.display=''; updateStats(); }
+
+async function loadHistory() {
+  try {
+    const res = await fetch('/audit/history?limit=100');
+    if (res.ok) { const d = await res.json(); d.forEach(addEntry); }
+  } catch(_) {}
+}
+
+function connect() {
+  const es = new EventSource('/audit/stream');
+  es.addEventListener('connected', () => { dot.classList.add('live'); statusText.textContent = 'Live'; });
+  es.onmessage = e => { try { addEntry(JSON.parse(e.data)); } catch(_) {} };
+  es.onerror = () => { dot.classList.remove('live'); statusText.textContent = 'Reconnecting…'; es.close(); setTimeout(connect, 3000); };
+}
+
+loadHistory().then(connect);
+</script>
+</body>
+</html>

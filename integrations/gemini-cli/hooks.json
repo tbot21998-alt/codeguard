@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "run_shell_command",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "codeguard",
+            "command": "codeguard agent-hook --client gemini-cli",
+            "timeout": 30000
+          }
+        ]
+      }
+    ]
+  }
+}

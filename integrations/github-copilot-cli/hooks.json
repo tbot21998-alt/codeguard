@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "exec": "codeguard",
+        "args": [
+          "agent-hook",
+          "--client",
+          "github-copilot-cli"
+        ],
+        "timeoutSec": 30
+      }
+    ]
+  }
+}

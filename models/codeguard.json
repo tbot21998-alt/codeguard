@@ -1,0 +1,123 @@
+{
+  "classifier": "LightGBM multi-output",
+  "n_categories": 9,
+  "categories": [
+    "ai_targeted_instructions",
+    "data_exfiltration",
+    "dependency_risk",
+    "destructive_command",
+    "obfuscated_execution",
+    "persistence_or_privesc",
+    "resource_exhaustion",
+    "secret_access",
+    "ssrf_network_exfil"
+  ],
+  "n_structural_features": 24,
+  "tfidf_word_features": 4000,
+  "tfidf_char_features": 6000,
+  "total_feature_dims": 10024,
+  "lgbm_n_estimators": 300,
+  "lgbm_learning_rate": 0.06,
+  "lgbm_max_depth": 5,
+  "lgbm_num_leaves": 24,
+  "block_threshold": 0.85,
+  "training_examples": 3626,
+  "synthetic_examples": 976,
+  "validation_examples": 226,
+  "validation": {
+    "ai_targeted_instructions": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 16.0
+    },
+    "data_exfiltration": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 16.0
+    },
+    "dependency_risk": {
+      "precision": 1.0,
+      "recall": 0.8888888888888888,
+      "f1-score": 0.9411764705882353,
+      "support": 9.0
+    },
+    "destructive_command": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 24.0
+    },
+    "obfuscated_execution": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 16.0
+    },
+    "persistence_or_privesc": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 16.0
+    },
+    "resource_exhaustion": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 16.0
+    },
+    "secret_access": {
+      "precision": 1.0,
+      "recall": 0.3333333333333333,
+      "f1-score": 0.5,
+      "support": 24.0
+    },
+    "ssrf_network_exfil": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
+      "support": 16.0
+    },
+    "micro avg": {
+      "precision": 1.0,
+      "recall": 0.26143790849673204,
+      "f1-score": 0.41450777202072536,
+      "support": 153.0
+    },
+    "macro avg": {
+      "precision": 0.4444444444444444,
+      "recall": 0.30246913580246915,
+      "f1-score": 0.3453159041394336,
+      "support": 153.0
+    },
+    "weighted avg": {
+      "precision": 0.42483660130718953,
+      "recall": 0.26143790849673204,
+      "f1-score": 0.3080866333461489,
+      "support": 153.0
+    },
+    "samples avg": {
+      "precision": 0.17699115044247787,
+      "recall": 0.17699115044247787,
+      "f1-score": 0.17699115044247787,
+      "support": 153.0
+    }
+  },
+  "includes_dev": false,
+  "development_correction_count": 87,
+  "development_correction_sources": [
+    "public benign regressions including historically named blind_holdout_test.json",
+    "large-code failure families: decoding text and fake credential documentation"
+  ],
+  "sklearn_version": "1.9.1",
+  "model_bytes": 1076898,
+  "mean_inference_ms": 42.082,
+  "p50_inference_ms": 35.489,
+  "p95_inference_ms": 86.028,
+  "seed": 42,
+  "probability_source": "LightGBM sigmoid of log-odds per binary sub-classifier",
+  "risk_score_block": "raw maximum model probability, independent of static policy verdict",
+  "risk_score_allow": "raw maximum model probability without clipping",
+  "provenance": "Locally authored synthetic templates; no pretrained weights and no external LLM calls. Whole template families held out before augmentation as a validation split. Development corrections are benign examples informed by regression failures and are not independent validation. Large-code benchmark is development-exposed after failure-driven corrections. Benign function context augmentation is not independent evidence. Synthetic results do not establish real-world accuracy."
+}

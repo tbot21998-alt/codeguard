@@ -1,0 +1,16 @@
+{
+  "codeguard": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "codeguard agent-hook --client antigravity-cli",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

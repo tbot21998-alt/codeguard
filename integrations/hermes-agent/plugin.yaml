@@ -1,0 +1,6 @@
+name: codeguard
+version: "0.1.0"
+description: "Inspect terminal commands before execution"
+author: "CodeGuard"
+provides_hooks:
+  - pre_tool_call

@@ -1,0 +1,14 @@
+{
+  "PreToolUse": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "codeguard agent-hook --client factory-droid",
+          "timeout": 30
+        }
+      ]
+    }
+  ]
+}
