@@ -1,6 +1,6 @@
 # CodeGuard
 
-For step-by-step installation, see [setupguide.md](../setupguide.md). Currently supported AI CLI integrations: **Antigravity CLI (AGY)** and **OpenCode**. Other templates are unverified.
+For step-by-step installation, see [setupguide.md](setupguide.md). Currently supported AI CLI integrations: **Antigravity CLI (AGY)** and **OpenCode**. Other templates are unverified.
 
 A local, CPU-only safety layer that evaluates generated source code and CLI commands and blocks risky ones **before** an execution wrapper runs them. The HTTP service only analyzes text: it has no execution endpoint and makes no external LLM calls.
 
@@ -14,8 +14,8 @@ Python 3.12+ is required for the pinned environment (verified on Python 3.14, Wi
 
 ```powershell
 python -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe -m pytest -q
+.venv\Scripts\python.exe -m pip install -r requirements.lock
+.venv\Scripts\python.exe scripts/check_deletion_policy.py
 .venv\Scripts\python.exe -m uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
@@ -70,9 +70,10 @@ Example (verified):
 
 Notes:
 - **Cold start.** Each separate CLI process must import scikit-learn/LightGBM and load the model (roughly 3 s the first time). For low latency, use the long-running `guard shell` or the HTTP service (`agent-hook` calls it), which load the model once and then take milliseconds per command.
-- `--audit-log <file>` (on `run`, `shell`, `agent-hook`) appends one JSON record per decision (timestamp, verdict, risk, categories, latency; raw command text is omitted). See [docs/cli-hardening.md](docs/cli-hardening.md) for the interpreter policy and remaining coverage gaps, and [integrations/README.md](integrations/README.md) for per-client activation.
+- `--audit-log <file>` (on `run`, `shell`, `agent-hook`) appends one JSON record per decision (timestamp, verdict, risk, categories, latency). Native agent hooks also record the inspected command, which can contain sensitive arguments; keep logs private. See [docs/cli-hardening.md](docs/cli-hardening.md) for the interpreter policy and remaining coverage gaps, and [integrations/README.md](integrations/README.md) for per-client activation.
 - Inline Python/Node/shell interpreter arguments (`python -c`, `node -e`, `bash -c`) and wrappers (`sudo`, `env`, `nohup`) are inspected recursively; interpreter calls without inspectable inline source are refused.
 - Only commands routed through CodeGuard are guarded; it does not globally intercept other terminals.
+- **Windows hook configuration:** Run `install_integrations.py` to generate the launcher for this computer. It uses an encoded PowerShell invocation to preserve Python paths containing spaces when launched through `cmd.exe`. Verify it with `.venv\Scripts\python.exe scripts/check_hook.py`.
 - Python integration: `SafeExecutor.run(code)` / `SafeExecutor.run_command(argv)` and the `@codeguard_protect` decorator raise `CodeGuardBlockedError` before anything runs.
 
 ---

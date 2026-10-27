@@ -1,4 +1,5 @@
 import json
+import base64
 import os
 import shlex
 import sys
@@ -20,8 +21,12 @@ def hook_argv(client, *, audit=True, local=False):
 def hook_command(client, *, audit=True, local=False):
     args = hook_argv(client, audit=audit, local=local)
     if local and os.name == "nt":
-        expression = "& " + " ".join("'" + arg.replace("'", "''") + "'" for arg in args)
-        return subprocess.list2cmdline(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", expression])
+        # AGY runs this string through cmd.exe. An encoded PowerShell command
+        # avoids nested cmd quoting of executable paths containing spaces.
+        invocation = "& " + " ".join("'" + arg.replace("'", "''") + "'" for arg in args)
+        script = "$payload = [Console]::In.ReadToEnd(); $payload | " + invocation + "; exit $LASTEXITCODE"
+        encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+        return "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded
     return shlex.join(args)
 
 

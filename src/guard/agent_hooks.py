@@ -74,6 +74,12 @@ def command_from_event(client, event):
 def check_http(command, endpoint):
     if endpoint not in {"http://127.0.0.1:8000", "http://localhost:8000"}:
         raise ValueError("Use the local CodeGuard service on port 8000")
+    # Native tool events contain shell commands. Do not infer Python for Windows
+    # commands such as 'del README.md', which also happen to parse as Python.
+    from guard.shell_rules import shell_findings
+    if shell_findings(command):
+        from guard.detector import inspect_code
+        return inspect_code(command, language="bash").verdict.model_dump()
     try:
         request = Request(endpoint + "/evaluate", data=json.dumps({"code": command}).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
         with build_opener(ProxyHandler({})).open(request, timeout=2) as response:
@@ -84,7 +90,7 @@ def check_http(command, endpoint):
         return verdict.model_dump()
     except (OSError, URLError):
         from guard.detector import inspect_code
-        return inspect_code(command).verdict.model_dump()
+        return inspect_code(command, language="bash").verdict.model_dump()
 
 
 def handle_event(client, event, checker):
@@ -98,7 +104,7 @@ def handle_event(client, event, checker):
         if not isinstance(result, dict) or result.get("verdict") not in {"allow", "block"}:
             raise ValueError("The detector returned an invalid verdict")
         reason = "CodeGuard: " + str(result.get("reason", "Policy blocked this command")) if result["verdict"] == "block" else None
-        return directive(client, reason), {"client": client, **{key: result[key] for key in ("verdict", "risk_score", "confidence_score", "categories", "reason", "vulnerable_lines") if key in result}, "latency_ms": round((time.perf_counter() - started) * 1000, 4)}
+        return directive(client, reason), {"client": client, "command": command, **{key: result[key] for key in ("verdict", "risk_score", "confidence_score", "categories", "reason", "vulnerable_lines") if key in result}, "latency_ms": round((time.perf_counter() - started) * 1000, 4)}
     except (ValueError, TypeError, OSError, URLError, HTTPException, RecursionError) as error:
         return directive(client, "CodeGuard failed closed: " + str(error)), {"client": client, "verdict": "block", "latency_ms": round((time.perf_counter() - started) * 1000, 4), "error": str(error)}
 
@@ -114,7 +120,7 @@ def run_agent_hook(client, endpoint=None, *, audit_log=None):
             checker = lambda command: check_http(command, endpoint)
         else:
             from guard.detector import inspect_code
-            checker = lambda command: inspect_code(command).verdict.model_dump()
+            checker = lambda command: inspect_code(command, language="bash").verdict.model_dump()
         output, report = handle_event(client, event, checker)
     except (ValueError, OSError, RecursionError) as error:
         output, report = directive(client, "CodeGuard failed closed: " + str(error)), {"error": str(error)}

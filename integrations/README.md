@@ -1,6 +1,6 @@
 # Portable CLI integrations
 
-The current supported integration targets are **Antigravity CLI (AGY)** and **OpenCode**. Other bundled CLI templates are experimental/unverified. For the complete beginner setup, see [setupguide.md](../../setupguide.md).
+The current supported integration targets are **Antigravity CLI (AGY)** and **OpenCode**. Other bundled CLI templates are experimental/unverified. For the complete beginner setup, see [setupguide.md](../setupguide.md).
 
 CodeGuard inspects supported command tool calls before execution. The checked-in templates use `codeguard` on PATH; they contain no developer-specific drive or home paths. The installer generates each machine's configuration using the Python interpreter running the installer. It preserves virtual-environment paths, quotes spaces, and does not require activating that environment each time a client starts.
 
@@ -39,6 +39,8 @@ Global destination: `~/.gemini/config/hooks.json`. Project destination: `.agents
 The hook receives `toolCall.name` and `toolCall.args`. It inspects `run_command.CommandLine`, returns `decision: allow` or `decision: deny`, and denies `manage_task` requests that send interactive input. Other tools retain the client's own permissions.
 
 After restarting Antigravity, run `/hooks` and verify the CodeGuard definition is enabled. Client permissions and hook trust settings still apply. The included `codeguard-hook.cmd` is an optional Windows launcher; `sh codeguard-hook.sh` is its POSIX counterpart. Both resolve a virtual environment beside the script, or use the executable path in `CODEGUARD_PYTHON`.
+
+On Windows, use the installer-generated encoded PowerShell launcher so paths with spaces survive the client's `cmd.exe` invocation. Do not substitute a manually quoted executable string. Verify the generated command with `.venv\Scripts\python.exe scripts/check_hook.py`.
 
 ## OpenCode
 

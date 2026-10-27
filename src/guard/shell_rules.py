@@ -6,6 +6,40 @@ from guard.patterns import PERSISTENCE_PATH, SECRET_PATH, internal_url, risky_pa
 from guard.schema import Finding
 
 
+def deletion_reason(command):
+    """Recognize deletion operations by executable/arguments, including Git globals."""
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+    lexer.whitespace_split = True
+    try:
+        words = list(lexer)
+    except ValueError:
+        words = command.split()
+    for position, word in enumerate(words):
+        executable = word.strip("\"'").replace("\\", "/").rsplit("/", 1)[-1].lower().removesuffix(".exe")
+        if executable != "git":
+            continue
+        arguments = words[position + 1:]
+        boundary = next((i for i, value in enumerate(arguments) if value and all(c in ";&|" for c in value)), len(arguments))
+        arguments = arguments[:boundary]
+        index = 0
+        while index < len(arguments):
+            option = arguments[index]
+            if option in {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--exec-path"}:
+                index += 2
+            elif option.startswith("-"):
+                index += 1
+            else:
+                break
+        if index < len(arguments) and arguments[index] == "rm":
+            options = arguments[index + 1:]
+            options = options[:options.index("--")] if "--" in options else options
+            if "--cached" not in options and "--dry-run" not in options and not any(
+                item.startswith("-") and not item.startswith("--") and "n" in item[1:] for item in options
+            ):
+                return "Git rm deletes tracked working-tree files. Deletion is blocked; do not retry with another removal tool."
+    return None
+
+
 def shell_findings(command, line=1):
     findings = []
     for offset, raw in enumerate(command.splitlines()):
@@ -21,18 +55,30 @@ def shell_findings(command, line=1):
         if words[0] in {"echo", "printf"} and not re.search(r"[|;>]|\$\(|`", current):
             continue
         for position, word in enumerate(words):
-            executable = word.replace("\\", "/").rsplit("/", 1)[-1].removesuffix(".exe")
-            if executable not in {"python", "python3", "python3.10", "python3.11", "python3.12", "python3.13", "python3.14", "py", "bash", "sh", "zsh", "node"}:
+            executable = word.replace("\\", "/").rsplit("/", 1)[-1].lower().removesuffix(".exe")
+            if executable not in {"python", "python3", "python3.10", "python3.11", "python3.12", "python3.13", "python3.14", "py", "bash", "sh", "zsh", "node", "cmd", "powershell", "pwsh"}:
                 continue
-            index = next((i + 1 for i in range(position + 1, min(position + 5, len(words) - 1)) if words[i] in {"-c", "-e", "--eval"}), None)
+            index = next((i + 1 for i in range(position + 1, min(position + 5, len(words) - 1)) if words[i].lower() in {"-c", "-e", "--eval", "/c", "-command"}), None)
             if index is not None:
                 from guard.static_rules import analyze
                 language = "python" if executable.startswith("python") or executable == "py" else "javascript" if executable == "node" else "bash"
-                nested = analyze(words[index], language)
+                source = " ".join(words[index:]) if executable in {"cmd", "powershell", "pwsh"} else words[index]
+                nested = analyze(source, language)
                 findings.extend(Finding(item.category, item.reason, line + offset, item.score) for item in nested)
         normalized = " ".join(words)
         def add(category, reason):
             findings.append(Finding(category, reason, line + offset))
+        removal = deletion_reason(current)
+        if removal:
+            add("destructive_command", removal)
+        if re.search(r"(?:^|[;&|]\s*)(?:(?:sudo|command|exec|nohup)\s+)*(?:/\S*/)?(?:rm|unlink)\s+", normalized, re.I):
+            add("destructive_command", "File removal can delete project data, even without recursive flags.")
+        if re.search(r"(?:^|[;&|]\s*)(?:Remove-Item|ri|del|erase|rmdir|rd)\s+", normalized, re.I):
+            add("destructive_command", "File or directory deletion is blocked, including PowerShell and Windows removal aliases.")
+        if re.search(r"\bfind\s+[^\n]*(?:-delete\b|-exec\s+(?:\S*/)?(?:rm|unlink)\b)", normalized):
+            add("destructive_command", "Find deletes project files directly or through another removal command.")
+        if re.search(r"\bxargs\s+[^\n]*\b(?:rm|unlink|rmdir)\b", normalized):
+            add("destructive_command", "Xargs passes file names to a removal command.")
         if re.search(r"(?:^|[;&|]\s*|\s)(?:sudo\s+)?(?:/\S*/)?rm\s+[^;&|]*", normalized):
             rm_part = re.split(r"\brm\s+", normalized, maxsplit=1)[-1]
             targets = [part for part in rm_part.split() if not part.startswith("-")]

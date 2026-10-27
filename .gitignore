@@ -30,6 +30,7 @@ uploads/
 .gcloud/
 .kube/
 .agents/
+.opencode/
 .codex/
 .npmrc
 .pypirc

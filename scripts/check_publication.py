@@ -5,7 +5,7 @@ import subprocess
 from pathlib import PurePosixPath
 
 
-PRIVATE_DIRS = {"data", "reports", "uploads", ".aws", ".ssh", ".azure", ".gcloud", ".kube", ".agents", ".codex", "malware-samples", "payloads", ".venv", "__pycache__"}
+PRIVATE_DIRS = {"data", "reports", "uploads", ".aws", ".ssh", ".azure", ".gcloud", ".kube", ".agents", ".opencode", ".codex", "malware-samples", "payloads", ".venv", "__pycache__"}
 PRIVATE_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".log", ".dmp", ".exe", ".dll", ".so", ".dylib", ".msi", ".scr", ".com", ".zip", ".7z", ".rar"}
 SECRET_PATTERNS = {
     "private key": rb"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----",

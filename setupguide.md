@@ -1,5 +1,27 @@
 # CodeGuard setup guide
 
+## Deletion protection regression check
+
+The command policy now blocks working-tree deletion through `git rm`, including `git -C` and other global options, plus individual `rm`/`unlink` deletions, Windows/PowerShell removal commands, and tested `find`/`xargs` deletion forms. `git status`, `git diff`, and `git log` remain allowed. Git's `--cached` and dry-run forms are permitted by this deletion rule because they do not delete working-tree files. Native hooks inspect input as shell commands to avoid confusing Windows `del` syntax with Python.
+
+From the `codeguard` directory run `.venv/Scripts/python.exe scripts/check_deletion_policy.py` on Windows, or `.venv/bin/python scripts/check_deletion_policy.py` on macOS/Linux. This checks detector rules and both adapter decisions without executing any input. Run `scripts/check_hook.py` using the same Python to test the generated launcher too. These checks cover the listed cases, not every possible way to delete data. File-editing tools outside the supported command hooks are outside this protection.
+
+The private audit log now records the inspected command alongside its verdict and reason, so a denied command and a later retry can be distinguished. Commands may contain sensitive arguments; keep these logs out of shared archives and Git.
+
+## Windows hook launcher fix and installation check
+
+Older generated Windows hooks could fail before inspection because cmd.exe misread the quoted Python executable path. The installer now uses an encoded PowerShell launcher with correctly quoted arguments. This encodes the launcher only; submitted command text still travels separately through stdin.
+
+After updating the source, run these commands from `codeguard` to refresh both global settings and this project's override, then restart AGY:
+
+```powershell
+.\.venv\Scripts\python.exe install_integrations.py --client antigravity-cli
+.\.venv\Scripts\python.exe install_integrations.py --client antigravity-cli --project .
+.\.venv\Scripts\python.exe scripts/check_hook.py
+```
+
+For a different workspace, replace `.` with its path. On macOS/Linux, use `.venv/bin/python` in these commands. The check launches the inspector from an unrelated directory and expects `echo hello` and `git status` to be allowed and a destructive test string to be denied. It never executes these input strings, and writes normal hook audit entries. Run it on each destination computer after creating its own virtual environment and installing dependencies. Windows has been tested locally; native macOS/Linux validation is still required.
+
 This guide covers unpacking the project, installing Python dependencies, starting the dashboard, and enabling command inspection in Antigravity CLI (AGY) and OpenCode.
 
 ## 1. Current support
@@ -289,6 +311,7 @@ Logs appear only after an inspected command produces an audit record. The first 
 | Duplicate audit entries | Check for both project and global OpenCode installations, or a duplicate explicit plugin entry. Use one installation scope. |
 | Port 8011 is busy | Start Uvicorn with `--port 8012` and use that port in the browser and API commands. |
 | Terminal command is not blocked | Ordinary terminals outside the integrated agent or CodeGuard wrapper are not intercepted. Verify hook activation first. |
+| `protojson error "invalid value &"` or Windows hook syntax error | Windows CLI runners execute hooks via `cmd.exe` or standard process invocation. Do not use PowerShell syntax starting with `& '...'`. Format the command in `hooks.json` with standard Windows double-quotes around paths with spaces: `"\"D:\\...\\python.exe\" -m guard agent-hook --client antigravity-cli --audit-log \"D:\\...\\reports\\command-audit.jsonl\""`. Rerunning `install_integrations.py` automatically generates this standard format. |
 
 For platform-specific native dependencies, consult the [official LightGBM installation guide](https://lightgbm.readthedocs.io/en/stable/Installation-Guide.html).
 
@@ -304,4 +327,4 @@ Recipients must follow the setup steps on their computer. CodeGuard does not ins
 
 CodeGuard inspects the supported command calls before those clients execute them. It is not system-wide antivirus, an operating-system sandbox, or a guarantee that every unsafe command will be detected. It does not intercept unrelated terminals, arbitrary file writes, all MCP tools, or remote devices automatically. The host must load the integration, and the model can produce both false positives and false negatives.
 
-For implementation details, read [the project README](codeguard/README.md), [integration notes](codeguard/integrations/README.md), and [the security policy](SECURITY.md).
+For implementation details, read [the project README](README.md), [integration notes](integrations/README.md), and [the security policy](SECURITY.md).
